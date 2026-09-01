@@ -1,0 +1,49 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tenant-rules
+  namespace: team-echo
+  labels:
+    tenant: echo
+spec:
+  groups:
+    # The federation contract. The central Prometheus only pulls series
+    # whose name matches "<level>:<metric>:<aggregation>", so tenants decide
+    # what leaves their stack by adding recording rules here.
+    - name: federation.recording
+      interval: 30s
+      rules:
+        - record: team:service_request:rate5m
+          expr: sum by (team) (rate(service_request_total[5m]))
+        - record: team_service:service_request:rate5m
+          expr: sum by (team, service) (rate(service_request_total[5m]))
+        - record: team_service:service_request_duration_seconds:p95_5m
+          expr: histogram_quantile(0.95, sum by (le, team, service) (rate(service_request_duration_seconds_bucket[5m])))
+        - record: team:prometheus_tsdb_head_series:sum
+          expr: sum(prometheus_tsdb_head_series)
+
+    # Tenant-owned alerts. These route to the shared Alertmanager and can be
+    # matched on the tenant label there.
+    - name: tenant.alerts
+      rules:
+        - alert: TargetDown
+          expr: up == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.job }}/{{ $labels.instance }} is down"
+        - alert: ServiceRequestRateZero
+          expr: sum(rate(service_request_total[5m])) == 0 or absent(service_request_total)
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "mock-service reports no requests"
+        - alert: ServiceMetricCardinalityHigh
+          expr: count(service_request_total) > 100
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "service_request_total has {{ $value }} series"

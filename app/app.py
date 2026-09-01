@@ -1,35 +1,47 @@
+import os
 import random
 import time
 import threading
-import uuid
-from prometheus_client import Counter, start_http_server
+from prometheus_client import Counter, Histogram, start_http_server
 
 SERVICES = ["auth", "payments", "inventory"]
 TEAMS = ["alpha", "bravo", "charlie", "delta", "echo"]
 
+# TEAM pins this instance to a single tenant. Unset means the legacy
+# behaviour: one instance emitting traffic for every team.
+TEAM = os.environ.get("TEAM")
+
+# Label values must be bounded. Per-request identifiers (request_id,
+# user_id, trace_id, ...) belong in logs or traces, never in metric labels.
 request_total = Counter(
     "service_request_total",
     "Total requests processed",
-    ["service", "team", "request_id"],
+    ["service", "team"],
+)
+
+request_duration = Histogram(
+    "service_request_duration_seconds",
+    "Simulated request latency",
+    ["service", "team"],
+    buckets=(0.05, 0.1, 0.2, 0.5, 1.0),
 )
 
 
 def simulate_requests():
     while True:
         service = random.choice(SERVICES)
-        team = random.choice(TEAMS)
-        request_id = str(uuid.uuid4())
+        team = TEAM or random.choice(TEAMS)
+        latency = max(0.01, 0.15 + random.gauss(0, 0.03))
 
-        request_total.labels(
-            service=service, team=team, request_id=request_id
-        ).inc()
+        request_total.labels(service=service, team=team).inc()
+        request_duration.labels(service=service, team=team).observe(latency)
 
-        time.sleep(max(0.01, 0.15 + random.gauss(0, 0.03)))
+        time.sleep(latency)
 
 
 def main():
     start_http_server(8080)
-    print("App started on :8080/metrics")
+    print(f"App started on :8080/metrics (team={TEAM or 'all'})")
 
     threads = []
     for _ in range(5):

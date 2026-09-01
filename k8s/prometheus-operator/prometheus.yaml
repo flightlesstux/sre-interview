@@ -14,6 +14,14 @@ spec:
   ruleSelector:
     matchLabels:
       tier: platform
+  scrapeInterval: 15s
+  evaluationInterval: 15s
+  # Global guard rails applied to every scrape target. A target that exceeds
+  # a limit fails the scrape (up == 0) instead of growing the TSDB unbounded.
+  enforcedSampleLimit: 5000
+  enforcedLabelLimit: 20
+  enforcedLabelNameLengthLimit: 64
+  enforcedLabelValueLengthLimit: 256
   resources:
     requests:
       cpu: 200m
@@ -21,8 +29,22 @@ spec:
     limits:
       cpu: "1"
       memory: 1Gi
-  retention: 2h
-  retentionSize: 1GB
+  # retentionSize must stay below the PVC size; the WAL and the block being
+  # compacted are not counted against it, so leave headroom.
+  retention: 24h
+  retentionSize: 3GB
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+  alerting:
+    alertmanagers:
+      - namespace: sre-challenge
+        name: alertmanager-operated
+        port: web
 ---
 apiVersion: v1
 kind: Service

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-charlie
+  labels:
+    tenant: charlie
+    monitoring.sre/tenant: "true"

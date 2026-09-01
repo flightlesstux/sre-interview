@@ -1,0 +1,9 @@
+# Aggregates every tenant. Maintained by scripts/add-tenant.sh.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - alpha
+  - bravo
+  - charlie
+  - delta
+  - echo

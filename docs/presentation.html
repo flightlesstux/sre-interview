@@ -1,0 +1,655 @@
+<title>Quiet On-Call, Full Disk</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --ground: #F4F6F8;
+    --surface: #FFFFFF;
+    --surface-2: #EAEEF2;
+    --ink: #1A2129;
+    --muted: #5B6673;
+    --line: #D6DCE2;
+    --accent: #C4502A;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #F8E7DF;
+    --ok: #2E7D4F;
+    --ok-soft: #E3F1E8;
+    --bad: #B3261E;
+    --bad-soft: #F9E3E1;
+    --code-bg: #1E252D;
+    --code-ink: #E8ECF0;
+    --code-accent: #F0A07A;
+    --shadow: 0 1px 2px rgba(26,33,41,.06), 0 8px 24px -12px rgba(26,33,41,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #11161B;
+      --surface: #1A2129;
+      --surface-2: #222B34;
+      --ink: #E6EAEE;
+      --muted: #98A3AE;
+      --line: #2C3641;
+      --accent: #E8794F;
+      --accent-ink: #11161B;
+      --accent-soft: #3A281F;
+      --ok: #5CC489;
+      --ok-soft: #1E3328;
+      --bad: #F08C84;
+      --bad-soft: #3D2321;
+      --code-bg: #0C1014;
+      --code-ink: #E6EAEE;
+      --code-accent: #F0A07A;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #11161B;
+    --surface: #1A2129;
+    --surface-2: #222B34;
+    --ink: #E6EAEE;
+    --muted: #98A3AE;
+    --line: #2C3641;
+    --accent: #E8794F;
+    --accent-ink: #11161B;
+    --accent-soft: #3A281F;
+    --ok: #5CC489;
+    --ok-soft: #1E3328;
+    --bad: #F08C84;
+    --bad-soft: #3D2321;
+    --code-bg: #0C1014;
+    --code-ink: #E6EAEE;
+    --code-accent: #F0A07A;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.55;
+  }
+  h1, h2, h3 {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-variation-settings: "wdth" 82;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); font-weight: 800; }
+  h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); }
+  h3 { font-size: 1.15rem; font-variation-settings: "wdth" 90; margin-bottom: .35rem; }
+  p { margin: 0 0 1rem; max-width: 66ch; }
+  a { color: var(--accent); }
+  code, pre, .mono {
+    font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: .88em;
+  }
+  code { background: var(--surface-2); padding: .1em .35em; border-radius: 3px; }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: .9rem 1.1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    line-height: 1.5;
+    margin: 0 0 1rem;
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: .84rem; }
+  pre .hl { color: var(--code-accent); }
+  pre .c { color: #8C9AA8; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    gap: 3rem;
+  }
+  nav {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    padding: 2.5rem 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  nav .brand {
+    font-family: "Archivo", sans-serif;
+    font-variation-settings: "wdth" 80;
+    font-weight: 800;
+    font-size: .8rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.4rem;
+  }
+  nav ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+  }
+  nav li a {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr;
+    gap: .4rem;
+    align-items: baseline;
+    padding: .35rem .5rem;
+    border-radius: 4px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: .92rem;
+    line-height: 1.3;
+  }
+  nav li a:hover, nav li a:focus-visible { background: var(--surface-2); color: var(--ink); outline: none; }
+  nav li a .n { font-family: "JetBrains Mono", monospace; font-size: .75rem; color: var(--accent); }
+  nav .part {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--muted);
+    margin: 1.2rem .5rem .4rem;
+  }
+  nav .part:first-of-type { margin-top: 0; }
+
+  main { padding: 2.5rem 0 6rem; min-width: 0; }
+  section {
+    padding: 3rem 0;
+    border-top: 1px solid var(--line);
+  }
+  section:first-of-type { border-top: 0; padding-top: 1rem; }
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: .74rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .9rem;
+  }
+  .eyebrow::after { content: ""; height: 1px; width: 2.5rem; background: var(--accent); }
+  .lede { font-size: 1.22rem; line-height: 1.45; color: var(--ink); max-width: 60ch; margin: 1rem 0 1.4rem; }
+  .muted { color: var(--muted); }
+
+  .hero .sub { font-size: 1.25rem; color: var(--muted); max-width: 56ch; margin-top: 1.2rem; }
+  .hero .meta {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.8rem;
+    margin-top: 2rem; font-size: .9rem; color: var(--muted);
+  }
+  .hero .meta b { color: var(--ink); font-weight: 600; }
+
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.4rem; margin: 1.2rem 0; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.2rem 0; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1.1rem 1.25rem;
+  }
+  .panel h3 { margin-top: 0; }
+  .panel p:last-child { margin-bottom: 0; }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1rem 1.1rem .9rem;
+    display: grid;
+    gap: .15rem;
+  }
+  .kpi .label { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .kpi .value {
+    font-family: "Archivo", sans-serif;
+    font-variation-settings: "wdth" 85;
+    font-weight: 800;
+    font-size: 2.1rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    margin-top: .3rem;
+  }
+  .kpi .value.bad { color: var(--bad); }
+  .kpi .value.ok { color: var(--ok); }
+  .kpi .note { font-size: .85rem; color: var(--muted); }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: .95rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .table-wrap { overflow-x: auto; margin: 1rem 0 1.4rem; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  th, td { text-align: left; padding: .6rem .9rem; border-top: 1px solid var(--line); vertical-align: top; }
+  thead th { border-top: 0; font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; background: var(--surface-2); }
+  td.num, th.num { text-align: right; font-family: "JetBrains Mono", monospace; font-size: .86rem; }
+  td .bad { color: var(--bad); font-weight: 600; }
+  td .ok { color: var(--ok); font-weight: 600; }
+
+  .pill {
+    display: inline-block; padding: .1em .55em; border-radius: 999px;
+    font-size: .76rem; font-weight: 600; letter-spacing: .03em;
+  }
+  .pill.bad { background: var(--bad-soft); color: var(--bad); }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.accent { background: var(--accent-soft); color: var(--accent); }
+
+  /* series growth chart */
+  .chart { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.2rem .8rem; }
+  .chart .title { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: .6rem; }
+  .bars { display: grid; grid-template-columns: 7rem 1fr 5rem; gap: .5rem .8rem; align-items: center; font-size: .9rem; }
+  .bars .lab { color: var(--muted); }
+  .bars .bar { height: 1.15rem; border-radius: 3px; background: var(--bad); opacity: .85; }
+  .bars .bar.ok { background: var(--ok); }
+  .bars .val { font-family: "JetBrains Mono", monospace; font-size: .82rem; text-align: right; }
+  .chart .foot { font-size: .8rem; color: var(--muted); margin-top: .7rem; }
+
+  /* chain */
+  .chain { list-style: none; margin: 1.2rem 0; padding: 0; display: grid; gap: .6rem; counter-reset: c; }
+  .chain li {
+    display: grid; grid-template-columns: 2rem 1fr; gap: .8rem;
+    padding: .7rem .9rem; background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+  }
+  .chain li::before {
+    counter-increment: c; content: counter(c);
+    font-family: "JetBrains Mono", monospace; font-size: .8rem; color: var(--accent);
+    padding-top: .15rem;
+  }
+  .chain li b { display: block; font-weight: 600; }
+
+  /* layers */
+  .layers { display: grid; gap: .5rem; margin: 1.2rem 0; }
+  .layer {
+    display: grid; grid-template-columns: 11rem 1fr; gap: 1rem;
+    padding: .75rem 1rem; background: var(--surface); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0;
+  }
+  .layer .where { font-family: "JetBrains Mono", monospace; font-size: .78rem; color: var(--muted); padding-top: .2rem; word-break: break-word; }
+
+  /* architecture diagram, plain boxes and arrows */
+  .arch { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1.4rem; margin: 1.2rem 0; overflow-x: auto; }
+  .arch-inner { display: grid; grid-template-columns: 1fr 5rem 1fr; gap: 1rem; min-width: 640px; align-items: stretch; }
+  .tenants { display: grid; gap: .7rem; }
+  .tenant, .central {
+    border: 1px solid var(--line); border-radius: 6px; padding: .7rem .9rem; background: var(--ground);
+  }
+  .tenant .ns, .central .ns { font-family: "JetBrains Mono", monospace; font-size: .74rem; color: var(--muted); }
+  .tenant .box, .central .box {
+    display: inline-block; margin: .35rem .35rem 0 0; padding: .2rem .55rem;
+    border-radius: 4px; background: var(--surface); border: 1px solid var(--line); font-size: .82rem;
+  }
+  .tenant .box.prom, .central .box.prom { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .central { border-color: var(--accent); background: var(--accent-soft); display: grid; gap: .6rem; align-content: start; }
+  .arrows { display: grid; align-content: center; justify-items: center; gap: .3rem; color: var(--accent); font-family: "JetBrains Mono", monospace; font-size: .72rem; text-align: center; }
+  .arrows .line { width: 100%; height: 2px; background: var(--accent); position: relative; }
+  .arrows .line::after {
+    content: ""; position: absolute; right: -1px; top: -4px;
+    border: 5px solid transparent; border-left-color: var(--accent); border-right: 0;
+  }
+  .arch .legend { display: flex; flex-wrap: wrap; gap: .4rem 1.4rem; margin-top: 1rem; font-size: .84rem; color: var(--muted); }
+
+  /* flow */
+  .flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin: 1.2rem 0; counter-reset: f; }
+  .flow .step {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: .8rem .9rem;
+    display: grid; gap: .3rem; align-content: start; position: relative;
+  }
+  .flow .step::before {
+    counter-increment: f; content: counter(f, decimal-leading-zero);
+    font-family: "JetBrains Mono", monospace; font-size: .74rem; color: var(--accent);
+  }
+  .flow .step b { font-weight: 600; font-size: .95rem; }
+  .flow .step span { font-size: .85rem; color: var(--muted); }
+  .flow .step .who { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
+
+  .callout {
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    padding: .9rem 1.1rem; border-radius: 0 6px 6px 0; margin: 1.2rem 0;
+  }
+  .callout p { margin: 0; }
+
+  .cmds { display: grid; gap: 1rem; }
+  .cmds h3 { margin-bottom: .3rem; }
+
+  footer { border-top: 1px solid var(--line); padding-top: 1.5rem; font-size: .88rem; color: var(--muted); }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; gap: 0; padding: 0 1.2rem; }
+    nav { position: static; height: auto; padding: 1.5rem 0 0; }
+    nav ol { flex-direction: row; flex-wrap: wrap; gap: .3rem; }
+    nav li a { padding: .3rem .5rem; }
+    nav .part { display: none; }
+    .grid-2, .grid-3, .flow { grid-template-columns: 1fr; }
+    .layer { grid-template-columns: 1fr; gap: .3rem; }
+    .hero .meta { gap: .4rem 1.2rem; }
+  }
+</style>
+
+<div class="layout">
+  <nav aria-label="Talk outline">
+    <div class="brand">SRE Challenge</div>
+    <ol>
+      <li><a href="#setup"><span class="n">01</span>The setup</a></li>
+      <div class="part">Task 1</div>
+      <li><a href="#signal"><span class="n">02</span>What the dashboard hid</a></li>
+      <li><a href="#cause"><span class="n">03</span>Root cause</a></li>
+      <li><a href="#why"><span class="n">04</span>Why disk and memory</a></li>
+      <li><a href="#fix"><span class="n">05</span>The fix, in layers</a></li>
+      <div class="part">Task 2</div>
+      <li><a href="#arch"><span class="n">06</span>Architecture</a></li>
+      <li><a href="#isolation"><span class="n">07</span>Tenant isolation</a></li>
+      <li><a href="#federation"><span class="n">08</span>Federation contract</a></li>
+      <li><a href="#onboarding"><span class="n">09</span>Adding a tenant</a></li>
+      <li><a href="#tooling"><span class="n">10</span>Tooling choices</a></li>
+      <li><a href="#limits"><span class="n">11</span>Limits and next</a></li>
+      <div class="part">Live</div>
+      <li><a href="#demo"><span class="n">12</span>Demo cheat sheet</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section class="hero" id="setup">
+      <div class="eyebrow">SRE interview walkthrough</div>
+      <h1>Quiet on-call, full disk</h1>
+      <p class="sub">Two weeks in. No pages, a green dashboard, and a Prometheus that fills its disk at night and gets OOM-killed twice a week. Then five teams ask for their own Prometheus and management asks for one dashboard.</p>
+      <div class="meta">
+        <span>Stack: <b>kind, Prometheus Operator v0.72, Grafana 10.4</b></span>
+        <span>Task 1: <b>find and fix the monitoring stack</b></span>
+        <span>Task 2: <b>tenant automation and federated queries</b></span>
+      </div>
+    </section>
+
+    <section id="signal">
+      <div class="eyebrow">Task 1</div>
+      <h2>What the dashboard hid</h2>
+      <p class="lede">The "Request Rate" panels were flat at zero. That read as healthy. The service was doing about 30 requests per second the whole time.</p>
+      <div class="grid-3">
+        <div class="kpi">
+          <span class="label">Dashboard request rate</span>
+          <span class="value bad">0</span>
+          <span class="note">sum(rate(service_request_total[5m]))</span>
+        </div>
+        <div class="kpi">
+          <span class="label">Real request rate</span>
+          <span class="value">~30 req/s</span>
+          <span class="note">5 threads, 150 ms sleep each</span>
+        </div>
+        <div class="kpi">
+          <span class="label">Alerts that could page</span>
+          <span class="value bad">0</span>
+          <span class="note">ruleSelector set, no PrometheusRule, no Alertmanager</span>
+        </div>
+      </div>
+      <p>Every series was created with value <code>1</code> and never incremented again, so <code>rate()</code> of each was zero and the sum of zeros was zero. The panel was not wrong, it was measuring the wrong shape of data. The "quiet on-call" was silence, not health.</p>
+    </section>
+
+    <section id="cause">
+      <div class="eyebrow">Task 1</div>
+      <h2>Root cause: one label</h2>
+      <pre><code>request_total = Counter(
+    "service_request_total",
+    "Total requests processed",
+    ["service", "team", <span class="hl">"request_id"</span>],   <span class="c"># a fresh UUID per request</span>
+)</code></pre>
+      <p>A per-request identifier as a metric label means one new time series per request, forever. The client library never expires label children, Prometheus keeps every series in the head block, and memory and disk scale with series count.</p>
+      <div class="grid-2">
+        <div class="chart">
+          <div class="title">service_request_total series, unmodified stack</div>
+          <div class="bars">
+            <span class="lab">90 s</span><div class="bar" style="width:82%"></div><span class="val">3 031</span>
+            <span class="lab">210 s</span><div class="bar" style="width:100%"></div><span class="val">3 691</span>
+            <span class="lab">after fix</span><div class="bar ok" style="width:1%"></div><span class="val">15</span>
+          </div>
+          <div class="foot">Measured on the kind cluster. Growth is linear with traffic and never plateaus.</div>
+        </div>
+        <div class="panel">
+          <h3>TSDB status at 210 s</h3>
+          <pre><code>headStats.numSeries: 7403
+labelValueCountByLabelName:
+  <span class="hl">request_id: 3691</span>
+  __name__:     17
+  team:          5</code></pre>
+          <p class="muted">The only label with unbounded values. A real service at 1 000 req/s would create 3.6 million series an hour.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="why">
+      <div class="eyebrow">Task 1</div>
+      <h2>Why disk and memory, not just slow queries</h2>
+      <ol class="chain">
+        <li><b>Head block holds every active series in memory.</b> 1Gi container limit, RSS grows with series, kernel kills it.</li>
+        <li><b>Storage was an emptyDir.</b> No <code>storage</code> block on the Prometheus CR, so the TSDB lived on the node's container filesystem. That is the disk that filled. Every restart lost all data.</li>
+        <li><b>retentionSize did not protect the disk.</b> It only counts persisted blocks. The WAL and the head chunks, the last two to three hours, are not counted, and with millions of series they alone exceed 1GB.</li>
+        <li><b>No guard rails on the scrape path.</b> No sample limit, no label limit, no scrape timeout. Prometheus accepted a 900 KB, ever-growing payload every 15 seconds.</li>
+        <li><b>No self-monitoring.</b> Prometheus did not scrape itself. Head series, WAL size and RSS were invisible.</li>
+      </ol>
+    </section>
+
+    <section id="fix">
+      <div class="eyebrow">Task 1</div>
+      <h2>The fix, in layers</h2>
+      <p class="lede">Remove the cause, then make sure the same class of bug cannot take the server down again, then make it visible.</p>
+      <div class="layers">
+        <div class="layer"><span class="where">app/app.py</span><div>Drop <code>request_id</code>. Labels are <code>service</code> and <code>team</code> only, 15 series. Add a bounded latency histogram. Add a <code>TEAM</code> env var for task 2.</div></div>
+        <div class="layer"><span class="where">Prometheus CR</span><div><code>enforcedSampleLimit: 5000</code>, label count and length limits. A bad exporter now fails its scrape and shows <code>up == 0</code> instead of filling the TSDB. 5Gi PVC, <code>retention: 24h</code>, <code>retentionSize: 3GB</code> leaves WAL headroom.</div></div>
+        <div class="layer"><span class="where">ServiceMonitors</span><div><code>scrapeTimeout: 10s</code>, <code>honorLabels: true</code>. New <code>prometheus-self</code> monitor so the server observes itself.</div></div>
+        <div class="layer"><span class="where">Alerting</span><div>Alertmanager deployed and wired. Rules: TargetDown, ScrapeSampleLimitExceeded, PrometheusSeriesGrowthAbnormal, PrometheusStorageNearlyFull, ServiceRequestRateZero, ServiceMetricCardinalityHigh (fires above 100 series).</div></div>
+        <div class="layer"><span class="where">Dashboard</span><div>New "Prometheus health" row: head series, series created per second, blocks and WAL on disk, scrape duration, RSS. The panels that would have shown this on day one.</div></div>
+        <div class="layer"><span class="where">CRDs</span><div>AlertmanagerConfig and ThanosRuler CRDs were missing. The operator's Alertmanager controller silently refused to reconcile without the first one.</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Metric</th><th class="num">Before (210 s)</th><th class="num">After</th></tr></thead>
+          <tbody>
+            <tr><td>/metrics payload</td><td class="num"><span class="bad">900 KB</span></td><td class="num"><span class="ok">16 KB</span></td></tr>
+            <tr><td>service_request_total series</td><td class="num"><span class="bad">3 691</span></td><td class="num"><span class="ok">15</span></td></tr>
+            <tr><td>Prometheus head series</td><td class="num">7 403</td><td class="num">784</td></tr>
+            <tr><td>Visible request rate</td><td class="num"><span class="bad">0</span></td><td class="num"><span class="ok">25 req/s</span></td></tr>
+            <tr><td>Scrape targets</td><td class="num">1</td><td class="num">2</td></tr>
+            <tr><td>Rules loaded</td><td class="num">0</td><td class="num">11</td></tr>
+            <tr><td>Storage</td><td class="num">emptyDir</td><td class="num">5Gi PVC</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="arch">
+      <div class="eyebrow">Task 2</div>
+      <h2>One Prometheus per team, one view for management</h2>
+      <p class="lede">Each team gets a Prometheus it fully owns. The central server pulls only pre-aggregated series from each of them. Grafana learns about tenants by itself.</p>
+      <div class="arch">
+        <div class="arch-inner">
+          <div class="tenants">
+            <div class="tenant"><span class="ns">team-alpha</span><br><span class="box">mock-service TEAM=alpha</span><span class="box prom">Prometheus alpha</span><span class="box">PrometheusRule</span><span class="box">datasource ConfigMap</span></div>
+            <div class="tenant"><span class="ns">team-bravo</span><br><span class="box">mock-service TEAM=bravo</span><span class="box prom">Prometheus bravo</span><span class="box">PrometheusRule</span><span class="box">datasource ConfigMap</span></div>
+            <div class="tenant"><span class="ns">team-charlie, delta, echo ...</span><br><span class="box">same template</span><span class="box prom">Prometheus N</span></div>
+          </div>
+          <div class="arrows">
+            <span>/federate</span>
+            <div class="line"></div>
+            <span>match[] = recording rules only</span>
+          </div>
+          <div class="central">
+            <span class="ns">sre-challenge (platform)</span>
+            <div><span class="box prom">Central Prometheus</span> <span class="box">federation ServiceMonitor</span></div>
+            <div><span class="box">Alertmanager</span> <span class="box">shared, tenant label routes</span></div>
+            <div><span class="box">Grafana</span> <span class="box">datasource sidecar</span> <span class="box">Global Overview dashboard</span></div>
+            <div><span class="box">Prometheus Operator</span> <span class="box">watches all namespaces</span></div>
+            <div><span class="box prom">Platform Prometheus</span> <span class="box">monitoring ns, scrapes operator, Grafana, Alertmanager, every Prometheus</span></div>
+          </div>
+        </div>
+        <div class="legend">
+          <span>Tenants send alerts to the shared Alertmanager with <code>tenant</code> as an external label.</span>
+          <span>Each tenant's datasource ConfigMap becomes a Grafana datasource automatically.</span>
+          <span>The platform Prometheus is the one that still alerts when the central Prometheus dies. It feeds the "Grafana Health" and "Monitoring Platform" dashboards.</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="isolation">
+      <div class="eyebrow">Task 2</div>
+      <h2>Tenant isolation</h2>
+      <p>Everything a team owns lives in <code>team-&lt;name&gt;</code> and carries <code>tenant: &lt;name&gt;</code>. The Prometheus CR selects ServiceMonitors, PodMonitors and rules only from namespaces and objects with that label, and its ServiceAccount has a namespace-scoped Role, not a ClusterRole.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Object</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>Namespace team-alpha</code></td><td>Boundary for RBAC, discovery and quotas</td></tr>
+            <tr><td><code>Prometheus alpha</code></td><td>2Gi PVC, 512Mi limit, same sample and label limits as the central server, <code>externalLabels.tenant</code></td></tr>
+            <tr><td><code>Role</code> + <code>RoleBinding</code></td><td>List services, endpoints and pods in this namespace only</td></tr>
+            <tr><td><code>ServiceMonitor</code> x2</td><td>The team's app and the team's Prometheus, selected by tenant label</td></tr>
+            <tr><td><code>PrometheusRule tenant-rules</code></td><td>The team's recording rules (the federation surface) and the team's alerts</td></tr>
+            <tr><td><code>Service prometheus</code> labelled <code>monitoring.sre/federate: "true"</code></td><td>Discovered by the central Prometheus, nothing else</td></tr>
+            <tr><td><code>ConfigMap grafana-datasource-alpha</code> labelled <code>grafana_datasource: "1"</code></td><td>Picked up by the Grafana sidecar</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="grid-2">
+        <div class="kpi"><span class="label">Team alpha Prometheus, label/team/values</span><span class="value ok mono" style="font-size:1.5rem">["alpha"]</span><span class="note">Cannot see other teams' data</span></div>
+        <div class="kpi"><span class="label">Team alpha Prometheus, scrape targets</span><span class="value ok" style="font-size:1.5rem">2, both in team-alpha</span><span class="note">mock-service and its own Prometheus</span></div>
+      </div>
+    </section>
+
+    <section id="federation">
+      <div class="eyebrow">Task 2</div>
+      <h2>The federation contract</h2>
+      <p class="lede">Raw series never leave a tenant. The central server only accepts series whose name follows the recording-rule convention <code>level:metric:aggregation</code>.</p>
+      <pre><code><span class="c"># k8s/prometheus-operator/federation.yaml, one ServiceMonitor for all tenants</span>
+namespaceSelector: { any: true }
+selector: { matchLabels: { monitoring.sre/federate: "true" } }
+endpoints:
+  - port: web
+    path: /federate
+    honorLabels: true
+    params:
+      "match[]":
+        - <span class="hl">'{__name__=~"[a-z_]+:[a-z_]+:[a-z0-9_]+"}'</span>
+        - '{__name__="up"}'</code></pre>
+      <div class="grid-2">
+        <div class="panel">
+          <h3>Why this shape</h3>
+          <p>Discovery is by label across all namespaces, so a new tenant is a federation target within one scrape interval with zero central change.</p>
+          <p>Tenants decide what they publish by writing recording rules. They cannot flood the central server, so the task 1 incident cannot propagate upward. Measured: 2 to 10 samples per federation scrape per tenant.</p>
+        </div>
+        <div class="panel">
+          <h3>Contract today</h3>
+          <div class="table-wrap" style="margin:.4rem 0 0;border:0">
+            <table>
+              <tbody>
+                <tr><td><code>team:service_request:rate5m</code></td><td>request rate dashboard</td></tr>
+                <tr><td><code>team_service:service_request:rate5m</code></td><td>per service</td></tr>
+                <tr><td><code>team_service:service_request_duration_seconds:p95_5m</code></td><td>latency</td></tr>
+                <tr><td><code>team:prometheus_tsdb_head_series:sum</code></td><td>series budget alert</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <p>Central alerts on top: <code>TenantFederationDown</code>, <code>TenantFederationStale</code>, <code>TenantSeriesBudgetHigh</code> above 50 000 series. The platform team hears about a broken or overloaded tenant before the tenant does.</p>
+    </section>
+
+    <section id="onboarding">
+      <div class="eyebrow">Task 2</div>
+      <h2>Adding a tenant</h2>
+      <p class="lede">A tenant is a directory in git rendered from one template. Onboarding is a pull request.</p>
+      <pre><code>scripts/add-tenant.sh foxtrot            <span class="c"># render k8s/tenants/foxtrot/, open a PR</span>
+scripts/add-tenant.sh foxtrot --apply    <span class="c"># same, and apply to the current cluster</span></code></pre>
+      <div class="flow">
+        <div class="step"><span class="who">team</span><b>Render and open PR</b><span>Script stamps the template, adds the tenant to the aggregate kustomization</span></div>
+        <div class="step"><span class="who">CI</span><b>Validate</b><span>kustomize build, kubeconform against operator CRDs, policy check that limits and storage are set</span></div>
+        <div class="step"><span class="who">platform</span><b>Review and merge</b><span>The only human gate. Budget changes are visible in the diff</span></div>
+        <div class="step"><span class="who">Argo CD</span><b>Sync</b><span>ApplicationSet directory generator over k8s/tenants/*</span></div>
+        <div class="step"><span class="who">operator</span><b>Reconcile</b><span>StatefulSet, config, PVC for the tenant Prometheus</span></div>
+        <div class="step"><span class="who">central</span><b>Discover</b><span>Service with monitoring.sre/federate=true appears, /federate scrape starts</span></div>
+        <div class="step"><span class="who">grafana</span><b>Datasource appears</b><span>Sidecar sees the labelled ConfigMap, writes it, reloads provisioning</span></div>
+        <div class="step"><span class="who">done</span><b>On the global dashboard</b><span>Measured: about 90 seconds from --apply to federated target up</span></div>
+      </div>
+      <div class="callout"><p>Removing a tenant is <code>git rm -r k8s/tenants/foxtrot</code> and a sync. Argo CD prunes the namespace and the PVC goes with it.</p></div>
+    </section>
+
+    <section id="tooling">
+      <div class="eyebrow">Task 2</div>
+      <h2>Tooling choices</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Concern</th><th>Choice</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Prometheus lifecycle</td><td>Prometheus Operator CRDs</td><td>Already in the stack. Teams get ServiceMonitor and PrometheusRule as a self-service API.</td></tr>
+            <tr><td>Templating</td><td>Kustomize plus a sed-rendered template</td><td>No new dependency, the output is plain YAML you can read in a PR. Helm is the step up once values diverge per tenant.</td></tr>
+            <tr><td>Delivery</td><td>Argo CD ApplicationSet, directory generator</td><td>One PR per tenant, automatic sync, pruning, drift detection, audit trail.</td></tr>
+            <tr><td>CI gates</td><td>kustomize build, kubeconform, Kyverno or conftest</td><td>Keeps the task 1 guard rails mandatory: no Prometheus without limits and storage.</td></tr>
+            <tr><td>Cross-tenant queries</td><td>Federation of recording rules</td><td>Native, no new components, bounded by construction.</td></tr>
+            <tr><td>Datasource automation</td><td>Grafana ConfigMap sidecar</td><td>Standard pattern, the same one kube-prometheus-stack uses. No Grafana API scripting.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="limits">
+      <div class="eyebrow">Task 2</div>
+      <h2>Where this stops, and what comes next</h2>
+      <div class="grid-2">
+        <div class="panel">
+          <h3>Federation is a snapshot</h3>
+          <p>Resolution is the federation interval and there is no drill-down into raw tenant data from the centre. When management wants ad-hoc queries: Thanos Query fanning out to a sidecar next to each tenant, or Grafana Mimir with one tenant ID per team. Both keep one global query endpoint and add object-storage retention, which removes "Prometheus ran out of disk" as a failure mode for good. The tenant directory structure does not change, the Prometheus CR gains a <code>thanos:</code> or <code>remoteWrite:</code> block.</p>
+        </div>
+        <div class="panel">
+          <h3>Central Prometheus is a single point of failure</h3>
+          <p>For the management view only, tenants keep working without it. <code>replicas: 2</code> on the central CR is the cheap fix.</p>
+          <h3 style="margin-top:1rem">Grafana and Alertmanager are shared</h3>
+          <p>Folders plus teams plus non-editable datasources on OSS Grafana. Per-tenant <code>AlertmanagerConfig</code> gives teams their own routes; an Alertmanager per tenant fits the same template if noisy neighbours appear.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo">
+      <div class="eyebrow">Live</div>
+      <h2>Demo cheat sheet</h2>
+      <div class="cmds">
+        <div>
+          <h3>1. Show the fix held</h3>
+          <pre><code>curl -s 'localhost:9090/api/v1/query?query=count(service_request_total)' | jq '.data.result[0].value[1]'
+curl -s localhost:9090/api/v1/status/tsdb | jq '.data.labelValueCountByLabelName[:3]'
+kubectl get pvc -n sre-challenge</code></pre>
+        </div>
+        <div>
+          <h3>2. Show tenants and federation</h3>
+          <pre><code>kubectl get prometheus -A
+curl -s localhost:9090/api/v1/targets | jq -r '.data.activeTargets[] | select(.labels.job=="federate") | "\(.labels.tenant_namespace) \(.health)"'
+curl -s -G localhost:9090/api/v1/query --data-urlencode 'query=sum by (tenant) (team:service_request:rate5m{tenant!=""})' | jq '.data.result[] | [.metric.tenant, .value[1]]'</code></pre>
+        </div>
+        <div>
+          <h3>3. Show isolation</h3>
+          <pre><code>kubectl port-forward -n team-alpha svc/prometheus 19090:9090 &amp;
+curl -s localhost:19090/api/v1/label/team/values</code></pre>
+        </div>
+        <div>
+          <h3>4. Onboard a tenant live</h3>
+          <pre><code>scripts/add-tenant.sh foxtrot --apply
+<span class="c"># about 90 s later</span>
+curl -s -u admin:admin localhost:3000/api/datasources | jq -r '.[].name'</code></pre>
+        </div>
+        <div>
+          <h3>Dashboards</h3>
+          <p>Grafana at <code>localhost:3000</code>: "Service Overview - SRE Challenge" for the central stack, "Global Overview - All Tenants" for the federated view, "Grafana Health" and "Monitoring Platform" from the platform Prometheus. Alertmanager at <code>localhost:9093</code>, platform Prometheus at <code>localhost:9091</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      Full write-ups: <code>docs/01-incident-analysis.md</code> and <code>docs/02-multi-tenant-design.md</code>. Every number on this page was measured on the kind cluster from <code>./setup.sh</code>.
+    </footer>
+  </main>
+</div>

@@ -20,8 +20,10 @@ spec:
         - name: prometheus-operator
           image: quay.io/prometheus-operator/prometheus-operator:v0.72.0
           args:
-            - --prometheus-instance-namespaces=sre-challenge
-            - --alertmanager-instance-namespaces=sre-challenge
+            # Tenant Prometheus instances live in their own namespaces, so the
+            # operator must watch the whole cluster. Restrict with
+            # --namespaces=... if a hard allowlist is required.
+            - --log-level=info
           resources:
             requests:
               cpu: 100m

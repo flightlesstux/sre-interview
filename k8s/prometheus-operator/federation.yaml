@@ -1,0 +1,35 @@
+# The central ("global") Prometheus pulls pre-aggregated series from every
+# tenant Prometheus. Discovery is by label, across all namespaces, so a new
+# tenant needs no change here.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: tenant-federation
+  namespace: sre-challenge
+  labels:
+    tier: platform
+spec:
+  jobLabel: monitoring.sre/federate
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      monitoring.sre/federate: "true"
+  endpoints:
+    - port: web
+      path: /federate
+      interval: 30s
+      scrapeTimeout: 20s
+      # Keep the tenant's external label (tenant=...) and its job/instance.
+      honorLabels: true
+      params:
+        # Only recording-rule output ("level:metric:aggregation") and up.
+        # Raw series never leave the tenant.
+        "match[]":
+          - '{__name__=~"[a-z_]+:[a-z_]+:[a-z0-9_]+"}'
+          - '{__name__="up"}'
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: tenant_namespace
+        - targetLabel: job
+          replacement: federate

@@ -1,15 +1,21 @@
+# Central ("global") datasource. Delivered by the same sidecar mechanism as
+# the tenant datasources, so there is exactly one way datasources reach
+# Grafana.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-datasources
   namespace: sre-challenge
+  labels:
+    grafana_datasource: "1"
 data:
-  datasource.yml: |
+  global.yaml: |
     apiVersion: 1
     datasources:
       - name: Prometheus
+        uid: prom-global
         type: prometheus
         access: proxy
         url: http://prometheus:9090
         isDefault: true
-        editable: true
+        editable: false
