@@ -1,0 +1,99 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-rules
+  namespace: sre-challenge
+  labels:
+    tier: platform
+spec:
+  groups:
+    - name: service.recording
+      interval: 30s
+      rules:
+        # Pre-aggregated, low-cardinality series. These are what the central
+        # (federated) Prometheus pulls, so raw series never leave a tenant.
+        - record: team:service_request:rate5m
+          expr: sum by (team) (rate(service_request_total[5m]))
+        - record: team_service:service_request:rate5m
+          expr: sum by (team, service) (rate(service_request_total[5m]))
+
+    - name: prometheus.health
+      rules:
+        - alert: TargetDown
+          expr: up == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} is down"
+            description: "Prometheus cannot scrape the target. If the scrape hit a sample or label limit, the exporter is emitting unbounded series."
+
+        - alert: ScrapeSampleLimitExceeded
+          expr: increase(prometheus_target_scrapes_exceeded_sample_limit_total[5m]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: "A scrape exceeded the sample limit on {{ $labels.instance }}"
+            description: "An exporter returned more series than allowed. Check for high-cardinality labels (request ids, user ids, timestamps)."
+
+        - alert: PrometheusHeadSeriesHigh
+          expr: prometheus_tsdb_head_series > 100000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Prometheus {{ $labels.instance }} holds {{ $value }} active series"
+            description: "Head series count is far above the expected baseline for this stack. Memory usage scales with this number."
+
+        - alert: PrometheusSeriesGrowthAbnormal
+          expr: rate(prometheus_tsdb_head_series_created_total[10m]) > 10
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Prometheus {{ $labels.instance }} is creating {{ $value }} new series per second"
+            description: "Steady creation of new series indicates a label with unbounded values. This is the signature of the request_id incident."
+
+        - alert: PrometheusStorageNearlyFull
+          expr: prometheus_tsdb_storage_blocks_bytes + prometheus_tsdb_wal_storage_size_bytes > 0.85 * 3e9
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Prometheus {{ $labels.instance }} TSDB is above 85% of retentionSize"
+
+        - alert: PrometheusScrapeTooSlow
+          expr: scrape_duration_seconds > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Scraping {{ $labels.job }}/{{ $labels.instance }} takes {{ $value }}s"
+            description: "Large /metrics payloads are a leading indicator of cardinality problems."
+
+        - alert: PrometheusRuleEvaluationFailures
+          expr: increase(prometheus_rule_evaluation_failures_total[5m]) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "Rule evaluation failures on {{ $labels.instance }}"
+
+    - name: mock-service.health
+      rules:
+        - alert: ServiceRequestRateZero
+          expr: sum(rate(service_request_total[5m])) == 0 or absent(service_request_total)
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "mock-service reports no requests"
+            description: "Either the service stopped serving traffic or its metrics are not being ingested."
+
+        - alert: ServiceMetricCardinalityHigh
+          expr: count(service_request_total) > 100
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "service_request_total has {{ $value }} series"
+            description: "Expected at most services x teams (15). A label with unbounded values has been added."
