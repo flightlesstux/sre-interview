@@ -1,0 +1,42 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: prometheus
+  namespace: sre-challenge
+  labels:
+    prometheus: prometheus
+spec:
+  replicas: 1
+  serviceAccountName: prometheus
+  serviceMonitorSelector:
+    matchLabels:
+      tier: platform
+  ruleSelector:
+    matchLabels:
+      tier: platform
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  retention: 2h
+  retentionSize: 1GB
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: sre-challenge
+  labels:
+    prometheus: prometheus
+spec:
+  type: NodePort
+  selector:
+    prometheus: prometheus
+  ports:
+    - name: web
+      port: 9090
+      targetPort: 9090
+      nodePort: 30001
