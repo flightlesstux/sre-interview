@@ -10,6 +10,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Always talk to the kind cluster, never to whatever context happens to be
+# current. Override with KUBE_CONTEXT=... if needed.
+KUBE_CONTEXT="${KUBE_CONTEXT:-kind-sre-challenge}"
+KUBECTL=(kubectl --context "$KUBE_CONTEXT")
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TEMPLATE_DIR="${REPO_DIR}/k8s/tenants/_template"
 TENANTS_DIR="${REPO_DIR}/k8s/tenants"
@@ -64,8 +68,12 @@ AGG="${TENANTS_DIR}/kustomization.yaml"
 echo "rendered ${OUT#"$REPO_DIR"/}"
 
 if [[ "$APPLY" == "--apply" ]]; then
-  kubectl apply -k "$OUT"
+  if ! "${KUBECTL[@]}" get --raw /readyz >/dev/null 2>&1; then
+    echo "error: cluster context '$KUBE_CONTEXT' is not reachable. Run 'make setup' first (or 'kind export kubeconfig --name sre-challenge')." >&2
+    exit 1
+  fi
+  "${KUBECTL[@]}" apply -k "$OUT"
   echo "waiting for prometheus-${TEAM}..."
-  kubectl rollout status "statefulset/prometheus-${TEAM}" -n "team-${TEAM}" --timeout=180s
+  "${KUBECTL[@]}" rollout status "statefulset/prometheus-${TEAM}" -n "team-${TEAM}" --timeout=180s
   echo "tenant '${TEAM}' is up. Federation target appears in the central Prometheus within 30s."
 fi
