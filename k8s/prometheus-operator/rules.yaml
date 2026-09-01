@@ -7,15 +7,33 @@ metadata:
     tier: platform
 spec:
   groups:
-    - name: service.recording
-      interval: 30s
+    - name: federation.health
       rules:
-        # Pre-aggregated, low-cardinality series. These are what the central
-        # (federated) Prometheus pulls, so raw series never leave a tenant.
-        - record: team:service_request:rate5m
-          expr: sum by (team) (rate(service_request_total[5m]))
-        - record: team_service:service_request:rate5m
-          expr: sum by (team, service) (rate(service_request_total[5m]))
+        - alert: TenantFederationDown
+          expr: up{job="federate"} == 0
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Cannot federate from tenant {{ $labels.tenant_namespace }}"
+            description: "The tenant Prometheus is down or its /federate endpoint is not answering. Management dashboards are stale for this team."
+
+        - alert: TenantSeriesBudgetHigh
+          expr: team:prometheus_tsdb_head_series:sum > 50000
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Tenant {{ $labels.tenant }} holds {{ $value }} active series"
+            description: "Above the per-tenant budget. Check for a high-cardinality label before the tenant Prometheus is OOM-killed."
+
+        - alert: TenantFederationStale
+          expr: time() - max by (tenant) (timestamp(team:service_request:rate5m)) > 300
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "No fresh federated data from tenant {{ $labels.tenant }}"
 
     - name: prometheus.health
       rules:

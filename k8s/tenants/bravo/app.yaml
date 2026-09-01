@@ -1,0 +1,88 @@
+# One mock-service per tenant, pinned to the tenant via TEAM so the traffic
+# actually belongs to this team.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-service
+  namespace: team-bravo
+  labels:
+    app: mock-service
+    tenant: bravo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-service
+  template:
+    metadata:
+      labels:
+        app: mock-service
+        tenant: bravo
+    spec:
+      containers:
+        - name: app
+          image: mock-service:latest
+          imagePullPolicy: Never
+          env:
+            - name: TEAM
+              value: bravo
+          ports:
+            - containerPort: 8080
+              name: metrics
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-service
+  namespace: team-bravo
+  labels:
+    app: mock-service
+    tenant: bravo
+spec:
+  selector:
+    app: mock-service
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mock-service
+  namespace: team-bravo
+  labels:
+    tenant: bravo
+spec:
+  selector:
+    matchLabels:
+      app: mock-service
+  endpoints:
+    - port: metrics
+      interval: 15s
+      scrapeTimeout: 10s
+      path: /metrics
+      honorLabels: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-self
+  namespace: team-bravo
+  labels:
+    tenant: bravo
+spec:
+  selector:
+    matchLabels:
+      monitoring.sre/federate: "true"
+  endpoints:
+    - port: web
+      interval: 15s
+      path: /metrics

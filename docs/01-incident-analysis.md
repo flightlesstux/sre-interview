@@ -97,8 +97,7 @@ you do not know the service is actually serving 30 req/s.
 
 ### Alerting (`k8s/prometheus-operator/rules.yaml`, `alertmanager.yaml`)
 
-Recording rules that pre-aggregate request rate per team and per
-team/service (also the federation surface for task 2), and alerts for:
+Alerts for:
 
 - `TargetDown`, `ScrapeSampleLimitExceeded`
 - `PrometheusHeadSeriesHigh`, `PrometheusSeriesGrowthAbnormal` (the

@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - base/namespace.yaml
   - base/app.yaml
+  - base/grafana-rbac.yaml
   - base/grafana.yaml
   - base/grafana-datasources.yaml
   - base/grafana-dashboard-provisioning.yaml

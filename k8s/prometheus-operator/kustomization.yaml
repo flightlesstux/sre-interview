@@ -9,3 +9,4 @@ resources:
   - alertmanager.yaml
   - servicemonitor.yaml
   - rules.yaml
+  - federation.yaml

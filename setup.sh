@@ -70,6 +70,7 @@ deploy_all() {
   kubectl apply -f "${SCRIPT_DIR}/k8s/base/grafana-datasources.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/base/grafana-dashboard-provisioning.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/base/grafana-dashboard.yaml"
+  kubectl apply -f "${SCRIPT_DIR}/k8s/base/grafana-rbac.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/base/grafana.yaml"
 
   log "Deploying Prometheus, Alertmanager, ServiceMonitors, RBAC, and rules..."
@@ -78,6 +79,12 @@ deploy_all() {
   kubectl apply -f "${SCRIPT_DIR}/k8s/prometheus-operator/prometheus.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/prometheus-operator/servicemonitor.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/prometheus-operator/rules.yaml"
+  kubectl apply -f "${SCRIPT_DIR}/k8s/prometheus-operator/federation.yaml"
+}
+
+deploy_tenants() {
+  log "Deploying monitoring tenants (k8s/tenants/*)..."
+  kubectl apply -k "${SCRIPT_DIR}/k8s/tenants"
 }
 
 wait_for_ready() {
@@ -93,6 +100,15 @@ wait_for_ready() {
   kubectl rollout status statefulset/prometheus-prometheus \
     -n sre-challenge --timeout=180s 2>/dev/null || \
     warn "Prometheus StatefulSet not ready yet (may take a minute)."
+
+  for dir in "${SCRIPT_DIR}"/k8s/tenants/*/; do
+    tenant="$(basename "$dir")"
+    [[ "$tenant" == _* ]] && continue
+    log "Waiting for tenant '${tenant}' Prometheus..."
+    kubectl rollout status "statefulset/prometheus-${tenant}" \
+      -n "team-${tenant}" --timeout=180s 2>/dev/null || \
+      warn "Tenant '${tenant}' Prometheus not ready yet (may take a minute)."
+  done
 
   log "Waiting for Alertmanager StatefulSet..."
   kubectl rollout status statefulset/alertmanager-alertmanager \
@@ -118,6 +134,8 @@ print_access_info() {
   echo "    kubectl get pods -n sre-challenge"
   echo "    kubectl get prometheus -n sre-challenge"
   echo "    kubectl get servicemonitor -n sre-challenge"
+  echo "    kubectl get prometheus -A"
+  echo "    scripts/add-tenant.sh <team> --apply    # onboard a new tenant"
   echo "    kubectl logs -f deployment/mock-service -n sre-challenge"
   echo ""
   echo "  To tear down:"
@@ -134,6 +152,7 @@ main() {
   deploy_crds
   deploy_operator
   deploy_all
+  deploy_tenants
   wait_for_ready
   print_access_info
 }

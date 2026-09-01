@@ -1,0 +1,21 @@
+# Picked up by the Grafana datasource sidecar (label grafana_datasource=1)
+# from any namespace. Gives the team its own datasource in the shared
+# Grafana without anyone touching the Grafana deployment.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-delta
+  namespace: team-delta
+  labels:
+    grafana_datasource: "1"
+    tenant: delta
+data:
+  delta.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus (team delta)
+        uid: prom-delta
+        type: prometheus
+        access: proxy
+        url: http://prometheus.team-delta.svc:9090
+        editable: false
