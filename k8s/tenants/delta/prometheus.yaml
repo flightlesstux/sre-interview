@@ -1,0 +1,81 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: delta
+  namespace: team-delta
+  labels:
+    tenant: delta
+spec:
+  replicas: 1
+  serviceAccountName: prometheus
+  # The tenant name is stamped on every series so the central Prometheus
+  # can tell tenants apart even if their metric names collide.
+  externalLabels:
+    tenant: delta
+  # Only this namespace, only objects owned by this tenant.
+  serviceMonitorNamespaceSelector:
+    matchLabels:
+      tenant: delta
+  serviceMonitorSelector:
+    matchLabels:
+      tenant: delta
+  podMonitorNamespaceSelector:
+    matchLabels:
+      tenant: delta
+  podMonitorSelector:
+    matchLabels:
+      tenant: delta
+  ruleNamespaceSelector:
+    matchLabels:
+      tenant: delta
+  ruleSelector:
+    matchLabels:
+      tenant: delta
+  scrapeInterval: 15s
+  evaluationInterval: 15s
+  enforcedSampleLimit: 5000
+  enforcedLabelLimit: 20
+  enforcedLabelNameLengthLimit: 64
+  enforcedLabelValueLengthLimit: 256
+  # Every tenant gets the same disk and memory budget. Bigger budgets are a
+  # conversation with the platform team, not a self-service knob.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  retention: 24h
+  retentionSize: 1GB
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+  alerting:
+    alertmanagers:
+      - namespace: sre-challenge
+        name: alertmanager-operated
+        port: web
+---
+# Discovered by the central Prometheus through the
+# monitoring.sre/federate=true label. Nothing else needs to change centrally
+# when a tenant is added.
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: team-delta
+  labels:
+    tenant: delta
+    monitoring.sre/federate: "true"
+spec:
+  selector:
+    prometheus: delta
+  ports:
+    - name: web
+      port: 9090
+      targetPort: 9090
