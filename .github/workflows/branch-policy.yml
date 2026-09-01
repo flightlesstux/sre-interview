@@ -1,0 +1,49 @@
+# Enforces the branching model on every pull request:
+#   main    <- develop only
+#   develop <- feature/*, fix/*, chore/*, docs/*, refactor/*, test/*, ci/*, hotfix/*
+# Both checks are required by the branch protection rules on main and develop.
+name: branch-policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-policy:
+    name: branch-policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check source and target branch
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          echo "PR: $HEAD -> $BASE"
+          case "$BASE" in
+            main)
+              if [ "$HEAD" != "develop" ]; then
+                echo "::error::main only accepts pull requests from develop (got '$HEAD')."
+                exit 1
+              fi ;;
+            develop)
+              if ! echo "$HEAD" | grep -Eq '^(feature|fix|chore|docs|refactor|test|ci|hotfix)/[a-z0-9._-]+$'; then
+                echo "::error::develop only accepts feature/*, fix/*, chore/*, docs/*, refactor/*, test/*, ci/* or hotfix/* branches (got '$HEAD')."
+                exit 1
+              fi ;;
+            *)
+              echo "::error::unexpected base branch '$BASE'."; exit 1 ;;
+          esac
+          echo "branch policy satisfied"
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: make lint
+        run: make lint
