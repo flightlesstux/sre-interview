@@ -137,6 +137,36 @@ platform alerts go to the platform rotation. The `AlertmanagerConfig` CRD
 (added in task 1) lets each team manage its own routes and receivers from
 its own namespace without editing the shared config.
 
+### Who watches the watchers: the platform Prometheus
+
+A third kind of Prometheus, `platform` in the `monitoring` namespace, has
+one job: monitor the monitoring stack. It scrapes the operator, Grafana,
+Alertmanager, the central Prometheus and every tenant Prometheus (same
+`monitoring.sre/federate` label, but `/metrics` instead of `/federate`).
+It selects only ServiceMonitors and rules labelled `tier: meta`, from any
+namespace, so it never scrapes application targets.
+
+Why a separate instance instead of the central one: if the central
+Prometheus is OOM-killed again, the thing that alerts on it must not be
+the thing that died. The platform Prometheus alerts on
+`PrometheusInstanceDown`, `PrometheusInstanceMemoryHigh`,
+`PrometheusFleetSeriesGrowth`, `PrometheusOperatorReconcileErrors`,
+`AlertmanagerDown`, `GrafanaDown`, `GrafanaHttp5xxRateHigh`,
+`GrafanaSlowRequests` and `GrafanaDatasourceErrors`.
+
+Two dashboards read from it through the `Prometheus (platform)` datasource:
+
+- **Grafana Health**: request rate by status, latency percentiles,
+  slowest handlers, 5xx ratio, datasource proxy latency per datasource
+  (a slow tenant Prometheus shows up as one line), dashboard API
+  timings, RSS, CPU, goroutines, Grafana-managed alerting state.
+- **Monitoring Platform**: every Prometheus instance in one table
+  (series, memory, disk, series creation rate, scrape and rule failures),
+  operator managed resources and reconcile errors, Alertmanager
+  notification throughput.
+
+Reachable at `localhost:9091`.
+
 ## Adding a new tenant
 
 Everything is a directory in git rendered from one template:

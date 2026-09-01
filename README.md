@@ -30,7 +30,7 @@ Repository layout after the changes:
 
 ```
 app/                          mock-service (TEAM env pins an instance to a tenant)
-k8s/infra/                    Prometheus Operator and CRDs
+k8s/infra/                    Prometheus Operator, CRDs, platform (meta-monitoring) Prometheus
 k8s/base/                     Grafana (with datasource sidecar), legacy mock-service
 k8s/prometheus-operator/      central Prometheus, Alertmanager, rules, federation
 k8s/tenants/_template/        the tenant template (edit this)
@@ -85,9 +85,10 @@ This will:
 1. Create a kind cluster named `sre-challenge`
 2. Build and load the `mock-service` container image into the cluster
 3. Install the Prometheus Operator CRDs and controller
-4. Deploy the app, Grafana, central Prometheus, Alertmanager, rules and the federation ServiceMonitor
-5. Deploy every tenant under `k8s/tenants/`
-6. Wait for everything to be ready
+4. Deploy the platform (meta-monitoring) Prometheus in the `monitoring` namespace
+5. Deploy the app, Grafana, central Prometheus, Alertmanager, rules and the federation ServiceMonitor
+6. Deploy every tenant under `k8s/tenants/`
+7. Wait for everything to be ready
 
 **Access endpoints after setup:**
 
@@ -97,9 +98,17 @@ This will:
 | Grafana | http://localhost:3000 (admin/admin) |
 | Central Prometheus | http://localhost:9090 |
 | Alertmanager | http://localhost:9093 |
+| Platform Prometheus (meta-monitoring) | http://localhost:9091 |
 | Tenant Prometheus | `kubectl port-forward -n team-alpha svc/prometheus 19090:9090` |
 
-Grafana dashboards: "Service Overview - SRE Challenge" (central stack and Prometheus health) and "Global Overview - All Tenants" (federated view).
+Grafana dashboards:
+
+| Dashboard | Datasource | Shows |
+|-----------|------------|-------|
+| Service Overview - SRE Challenge | Prometheus (central) | the app and the central Prometheus's own health |
+| Global Overview - All Tenants | Prometheus (central) | federated request rates, latency and series budget per tenant |
+| Grafana Health | Prometheus (platform) | Grafana HTTP, datasource proxy, process and alerting metrics |
+| Monitoring Platform | Prometheus (platform) | every Prometheus instance, the operator and Alertmanager |
 
 **Tear down when done:**
 
