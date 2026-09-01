@@ -36,7 +36,18 @@ k8s/prometheus-operator/      central Prometheus, Alertmanager, rules, federatio
 k8s/tenants/_template/        the tenant template (edit this)
 k8s/tenants/<team>/           rendered tenants, one directory each
 scripts/add-tenant.sh         render and optionally apply a tenant
+Makefile                      status, debug, verify, tenant and lifecycle targets
 docs/                         analysis and design documents
+```
+
+### Day-to-day controls
+
+```bash
+make help            # every target
+make status          # pods, CRs, PVCs, federation targets, firing alerts
+make verify          # task 1 and task 2 checks against the live stack
+make debug           # non-running pods, warning events, operator errors
+make tenant-check TEAM=alpha
 ```
 
 ### Adding a tenant
@@ -44,6 +55,8 @@ docs/                         analysis and design documents
 ```bash
 scripts/add-tenant.sh foxtrot            # render k8s/tenants/foxtrot, commit it in a PR
 scripts/add-tenant.sh foxtrot --apply    # same, and apply to the current cluster
+make add-tenant TEAM=foxtrot             # same as --apply
+make remove-tenant TEAM=foxtrot
 ```
 
 Within about a minute the new team has its own Prometheus, its own rules, a datasource in Grafana and a line on the "Global Overview - All Tenants" dashboard.
