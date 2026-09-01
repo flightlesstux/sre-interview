@@ -1,0 +1,93 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-meta-rules
+  namespace: monitoring
+  labels:
+    tier: meta
+spec:
+  groups:
+    - name: grafana.health
+      rules:
+        - alert: GrafanaDown
+          expr: up{job="grafana"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Grafana is not answering /metrics"
+        - alert: GrafanaHttp5xxRateHigh
+          expr: |
+            sum(rate(grafana_http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+              / sum(rate(grafana_http_request_duration_seconds_count[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "More than 5% of Grafana HTTP responses are 5xx"
+        - alert: GrafanaSlowRequests
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(grafana_http_request_duration_seconds_bucket[5m]))) > 2
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Grafana p95 request latency above 2s"
+        - alert: GrafanaDatasourceErrors
+          expr: sum by (datasource) (rate(grafana_datasource_request_total{code=~"5..|0"}[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Grafana datasource {{ $labels.datasource }} is returning errors"
+
+    - name: operator.health
+      rules:
+        - alert: PrometheusOperatorDown
+          expr: up{job="prometheus-operator"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Prometheus Operator is down; CR changes are not reconciled"
+        - alert: PrometheusOperatorReconcileErrors
+          expr: sum by (controller) (rate(prometheus_operator_reconcile_errors_total[10m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Operator controller {{ $labels.controller }} has reconcile errors"
+
+    - name: prometheus-fleet.health
+      rules:
+        - alert: PrometheusInstanceDown
+          expr: up{job=~"prometheus-central|prometheus-tenants|prometheus-platform"} == 0
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Prometheus {{ $labels.namespace }}/{{ $labels.pod }} is down"
+        # Limits come from the manifests: tenants and platform 512Mi, central 1Gi.
+        - alert: PrometheusInstanceMemoryHigh
+          expr: |
+            process_resident_memory_bytes{job=~"prometheus-tenants|prometheus-platform"} > 0.85 * 512 * 1024 * 1024
+              or process_resident_memory_bytes{job="prometheus-central"} > 0.85 * 1024 * 1024 * 1024
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Prometheus {{ $labels.namespace }}/{{ $labels.pod }} above 85% of its memory limit"
+        - alert: PrometheusFleetSeriesGrowth
+          expr: rate(prometheus_tsdb_head_series_created_total[10m]) > 10
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.pod }} is creating {{ $value }} series/s"
+        - alert: AlertmanagerDown
+          expr: up{job="alertmanager-operated"} == 0
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Alertmanager is down; nothing can page"

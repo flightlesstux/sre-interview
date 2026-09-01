@@ -487,11 +487,13 @@ labelValueCountByLabelName:
             <div><span class="box">Alertmanager</span> <span class="box">shared, tenant label routes</span></div>
             <div><span class="box">Grafana</span> <span class="box">datasource sidecar</span> <span class="box">Global Overview dashboard</span></div>
             <div><span class="box">Prometheus Operator</span> <span class="box">watches all namespaces</span></div>
+            <div><span class="box prom">Platform Prometheus</span> <span class="box">monitoring ns, scrapes operator, Grafana, Alertmanager, every Prometheus</span></div>
           </div>
         </div>
         <div class="legend">
           <span>Tenants send alerts to the shared Alertmanager with <code>tenant</code> as an external label.</span>
           <span>Each tenant's datasource ConfigMap becomes a Grafana datasource automatically.</span>
+          <span>The platform Prometheus is the one that still alerts when the central Prometheus dies. It feeds the "Grafana Health" and "Monitoring Platform" dashboards.</span>
         </div>
       </div>
     </section>
@@ -641,7 +643,7 @@ curl -s -u admin:admin localhost:3000/api/datasources | jq -r '.[].name'</code><
         </div>
         <div>
           <h3>Dashboards</h3>
-          <p>Grafana at <code>localhost:3000</code>: "Service Overview - SRE Challenge" for the central stack and Prometheus health, "Global Overview - All Tenants" for the federated view. Alertmanager at <code>localhost:9093</code>.</p>
+          <p>Grafana at <code>localhost:3000</code>: "Service Overview - SRE Challenge" for the central stack, "Global Overview - All Tenants" for the federated view, "Grafana Health" and "Monitoring Platform" from the platform Prometheus. Alertmanager at <code>localhost:9093</code>, platform Prometheus at <code>localhost:9091</code>.</p>
         </div>
       </div>
     </section>

@@ -11,6 +11,7 @@ TEAM         ?=
 PROM_URL     ?= http://localhost:9090
 GRAFANA_URL  ?= http://localhost:3000
 AM_URL       ?= http://localhost:9093
+PLATFORM_URL ?= http://localhost:9091
 GRAFANA_AUTH ?= admin:admin
 TENANT_PORT  ?= 19090
 
@@ -41,7 +42,7 @@ build: ## Rebuild mock-service, load into kind, restart every mock-service deplo
 .PHONY: apply
 apply: ## Re-apply platform manifests and all tenants (no cluster recreation)
 	for crd in k8s/infra/crds/*.yaml; do kubectl apply --server-side -f $$crd >/dev/null; done
-	kubectl apply -f k8s/infra/namespace.yaml -f k8s/infra/operator.yaml
+	kubectl apply -k k8s/infra
 	kubectl apply -f k8s/base/
 	kubectl apply -f k8s/prometheus-operator/rbac.yaml -f k8s/prometheus-operator/alertmanager.yaml \
 		-f k8s/prometheus-operator/prometheus.yaml -f k8s/prometheus-operator/servicemonitor.yaml \
@@ -66,6 +67,8 @@ status: ## Pods, Prometheus CRs, PVCs, federation targets, firing alerts
 	@echo; echo "== persistent volumes"; kubectl get pvc -A --no-headers | awk '{printf "%-16s %-48s %-8s %s\n",$$1,$$2,$$3,$$5}'
 	@echo; echo "== federation targets (central)"
 	@curl -sf $(PROM_URL)/api/v1/targets | jq -r '.data.activeTargets[] | select(.labels.job=="federate") | "\(.labels.tenant_namespace)\t\(.health)"' || echo "central Prometheus not reachable at $(PROM_URL)"
+	@echo; echo "== platform (meta) targets"
+	@curl -sf $(PLATFORM_URL)/api/v1/targets | jq -r '.data.activeTargets[] | "\(.labels.job)\t\(.labels.namespace)\t\(.health)"' | sort | column -t -s $$'\t' || echo "platform Prometheus not reachable at $(PLATFORM_URL)"
 	@echo; echo "== firing alerts (central)"
 	@curl -sf $(AM_URL)/api/v2/alerts | jq -r 'if length==0 then "none" else .[] | "\(.labels.alertname)\t\(.labels.severity)\t\(.labels.tenant // "platform")" end' || echo "Alertmanager not reachable at $(AM_URL)"
 
@@ -111,6 +114,10 @@ logs-app: ## Follow the central mock-service logs
 .PHONY: logs-grafana
 logs-grafana: ## Follow Grafana and its datasource sidecar
 	kubectl logs -f deployment/grafana -n $(NS) --all-containers
+
+.PHONY: logs-platform
+logs-platform: ## Follow the platform (meta-monitoring) Prometheus logs
+	kubectl logs -f statefulset/prometheus-platform -n monitoring -c prometheus
 
 .PHONY: targets
 targets: ## All scrape targets of the central Prometheus with health
@@ -164,13 +171,14 @@ tenant-check: ## Show what a tenant Prometheus can see: team values and targets 
 
 .PHONY: open
 open: ## Open Grafana, Prometheus and Alertmanager in the browser (macOS)
-	open $(GRAFANA_URL) $(PROM_URL) $(AM_URL)
+	open $(GRAFANA_URL) $(PROM_URL) $(AM_URL) $(PLATFORM_URL)
 
 .PHONY: urls
 urls: ## Print the access URLs
 	@echo "Grafana       $(GRAFANA_URL)  (admin/admin)"
 	@echo "Prometheus    $(PROM_URL)"
 	@echo "Alertmanager  $(AM_URL)"
+	@echo "Platform Prom $(PLATFORM_URL)  (meta-monitoring: operator, Grafana, all Prometheus)"
 	@echo "mock-service  http://localhost:8080/metrics"
 
 .PHONY: help

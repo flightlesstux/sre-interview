@@ -61,6 +61,11 @@ deploy_operator() {
   log "Waiting for prometheus-operator to be ready..."
   kubectl wait --for=condition=Available deployment/prometheus-operator \
     -n monitoring --timeout=120s
+
+  log "Deploying platform (meta-monitoring) Prometheus..."
+  kubectl apply -f "${SCRIPT_DIR}/k8s/infra/prometheus-platform.yaml"
+  kubectl apply -f "${SCRIPT_DIR}/k8s/infra/servicemonitors-platform.yaml"
+  kubectl apply -f "${SCRIPT_DIR}/k8s/infra/rules-platform.yaml"
 }
 
 deploy_all() {
@@ -110,6 +115,11 @@ wait_for_ready() {
       warn "Tenant '${tenant}' Prometheus not ready yet (may take a minute)."
   done
 
+  log "Waiting for platform Prometheus StatefulSet..."
+  kubectl rollout status statefulset/prometheus-platform \
+    -n monitoring --timeout=180s 2>/dev/null || \
+    warn "Platform Prometheus StatefulSet not ready yet (may take a minute)."
+
   log "Waiting for Alertmanager StatefulSet..."
   kubectl rollout status statefulset/alertmanager-alertmanager \
     -n sre-challenge --timeout=120s 2>/dev/null || \
@@ -128,6 +138,7 @@ print_access_info() {
   echo "    Grafana Dashboard     : http://localhost:3000 (admin/admin)"
   echo "    Prometheus            : http://localhost:9090"
   echo "    Alertmanager          : http://localhost:9093"
+  echo "    Platform Prometheus   : http://localhost:9091"
   echo ""
   echo "  Useful commands:"
   echo ""

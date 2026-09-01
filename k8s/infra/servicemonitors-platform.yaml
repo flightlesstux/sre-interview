@@ -1,0 +1,110 @@
+# What the platform Prometheus scrapes. All carry tier: meta.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-operator
+  namespace: monitoring
+  labels:
+    tier: meta
+spec:
+  selector:
+    matchLabels:
+      app: prometheus-operator
+  endpoints:
+    - port: http
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-platform-self
+  namespace: monitoring
+  labels:
+    tier: meta
+spec:
+  selector:
+    matchLabels:
+      prometheus: platform
+  endpoints:
+    - port: web
+      interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: grafana
+  namespace: monitoring
+  labels:
+    tier: meta
+spec:
+  jobLabel: app
+  namespaceSelector:
+    matchNames: ["sre-challenge"]
+  selector:
+    matchLabels:
+      app: grafana
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: alertmanager
+  namespace: monitoring
+  labels:
+    tier: meta
+spec:
+  namespaceSelector:
+    matchNames: ["sre-challenge"]
+  selector:
+    matchLabels:
+      operated-alertmanager: "true"
+  endpoints:
+    - port: web
+      interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-central
+  namespace: monitoring
+  labels:
+    tier: meta
+spec:
+  namespaceSelector:
+    matchNames: ["sre-challenge"]
+  selector:
+    matchLabels:
+      prometheus: prometheus
+  endpoints:
+    - port: web
+      interval: 15s
+      relabelings:
+        - targetLabel: job
+          replacement: prometheus-central
+---
+# Every tenant Prometheus, discovered by the same label the central
+# federation uses. Scrapes /metrics here, not /federate.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-tenants
+  namespace: monitoring
+  labels:
+    tier: meta
+spec:
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      monitoring.sre/federate: "true"
+  endpoints:
+    - port: web
+      interval: 15s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: tenant_namespace
+        - targetLabel: job
+          replacement: prometheus-tenants
