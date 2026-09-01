@@ -4,7 +4,8 @@ resources:
   - ../base
   - ../infra/namespace.yaml
   - ../infra/operator.yaml
-  - prometheus.yaml
   - rbac.yaml
+  - prometheus.yaml
+  - alertmanager.yaml
   - servicemonitor.yaml
-
+  - rules.yaml

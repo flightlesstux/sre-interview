@@ -12,4 +12,27 @@ spec:
   endpoints:
     - port: metrics
       interval: 15s
+      scrapeTimeout: 10s
+      path: /metrics
+      # Keep the application's own "service" label instead of renaming it
+      # to exported_service. The Kubernetes service name is still in "job".
+      honorLabels: true
+      # Sample and label limits are enforced globally on the Prometheus CR
+      # (enforcedSampleLimit etc). A scrape over the limit is rejected as a
+      # whole and shows up as up == 0 instead of silently filling the TSDB.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus-self
+  namespace: sre-challenge
+  labels:
+    tier: platform
+spec:
+  selector:
+    matchLabels:
+      prometheus: prometheus
+  endpoints:
+    - port: web
+      interval: 15s
       path: /metrics

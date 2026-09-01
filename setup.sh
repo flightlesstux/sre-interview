@@ -72,10 +72,12 @@ deploy_all() {
   kubectl apply -f "${SCRIPT_DIR}/k8s/base/grafana-dashboard.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/base/grafana.yaml"
 
-  log "Deploying Prometheus, ServiceMonitor, RBAC, and alerts..."
+  log "Deploying Prometheus, Alertmanager, ServiceMonitors, RBAC, and rules..."
   kubectl apply -f "${SCRIPT_DIR}/k8s/prometheus-operator/rbac.yaml"
+  kubectl apply -f "${SCRIPT_DIR}/k8s/prometheus-operator/alertmanager.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/prometheus-operator/prometheus.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/prometheus-operator/servicemonitor.yaml"
+  kubectl apply -f "${SCRIPT_DIR}/k8s/prometheus-operator/rules.yaml"
 }
 
 wait_for_ready() {
@@ -91,6 +93,11 @@ wait_for_ready() {
   kubectl rollout status statefulset/prometheus-prometheus \
     -n sre-challenge --timeout=180s 2>/dev/null || \
     warn "Prometheus StatefulSet not ready yet (may take a minute)."
+
+  log "Waiting for Alertmanager StatefulSet..."
+  kubectl rollout status statefulset/alertmanager-alertmanager \
+    -n sre-challenge --timeout=120s 2>/dev/null || \
+    warn "Alertmanager StatefulSet not ready yet (may take a minute)."
 }
 
 print_access_info() {
@@ -104,6 +111,7 @@ print_access_info() {
   echo "    Mock Service /metrics : http://localhost:8080/metrics"
   echo "    Grafana Dashboard     : http://localhost:3000 (admin/admin)"
   echo "    Prometheus            : http://localhost:9090"
+  echo "    Alertmanager          : http://localhost:9093"
   echo ""
   echo "  Useful commands:"
   echo ""
