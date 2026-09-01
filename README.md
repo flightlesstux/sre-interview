@@ -63,6 +63,15 @@ Within about a minute the new team has its own Prometheus, its own rules, a data
 
 ---
 
+## Branching model
+
+| Branch | Receives from | How |
+|--------|---------------|-----|
+| `main` | `develop` only | release pull request |
+| `develop` | `feature/*`, `fix/*`, `chore/*`, `docs/*`, `refactor/*`, `test/*`, `ci/*`, `hotfix/*` | one pull request per branch |
+
+Both branches are protected: no direct pushes, no force pushes, pull request required, the `branch-policy` and `lint` checks must pass, commits must be signed. Feature branches are kept after merge. The policy is enforced by `.github/workflows/branch-policy.yml`.
+
 ## Prerequisites
 
 Install these before starting:
