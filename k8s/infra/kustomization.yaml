@@ -1,0 +1,8 @@
+# CRDs under crds/ are applied with kubectl apply --server-side in setup.sh
+# (too large for client-side apply annotations) and are deliberately not
+# listed here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - operator.yaml
