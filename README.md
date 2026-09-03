@@ -24,6 +24,8 @@ The goal is to understand your thought process, not develop a production-ready s
 | 1 | [docs/01-incident-analysis.md](docs/01-incident-analysis.md) | `service_request_total` had a per-request UUID label. Removed it, added scrape limits, persistent storage, self-monitoring, alerting, and a dashboard that shows Prometheus health. |
 | 2 | [docs/02-multi-tenant-design.md](docs/02-multi-tenant-design.md) | One operator-managed Prometheus per team namespace, recording rules federated into a central Prometheus, Grafana datasource per tenant via sidecar, tenant onboarding with `scripts/add-tenant.sh`. |
 
+Interview preparation: [docs/03-interview-qa.md](docs/03-interview-qa.md) collects the questions this work is likely to raise, with answers grounded in what was built and measured.
+
 Presentation walkthrough for the on-site: open [docs/presentation.html](docs/presentation.html) in a browser.
 
 Repository layout after the changes:
